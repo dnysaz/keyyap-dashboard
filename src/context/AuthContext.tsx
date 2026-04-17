@@ -2,11 +2,12 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
 
 interface AuthContextType {
   isAuthenticated: boolean
-  login: (email: string, pass: string) => boolean
-  logout: () => void
+  login: (email: string, pass: string) => Promise<boolean>
+  logout: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -36,8 +37,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isAuthenticated, pathname, isLoading, router])
 
-  const login = (email: string, pass: string) => {
-    if (email === 'keyyap@keyyap.com' && pass === 'Lemarikaca01') {
+  const login = async (email: string, pass: string) => {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password: pass
+    })
+
+    if (error) {
+      console.error('Login error:', error.message)
+      return false
+    }
+
+    if (data.user) {
       setIsAuthenticated(true)
       localStorage.setItem('keyyap_admin_auth', 'true')
       return true
@@ -45,7 +56,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return false
   }
 
-  const logout = () => {
+  const logout = async () => {
+    await supabase.auth.signOut()
     setIsAuthenticated(false)
     localStorage.removeItem('keyyap_admin_auth')
     router.push('/login')

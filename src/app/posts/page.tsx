@@ -140,7 +140,7 @@ export default function PostsPage() {
             </div>
             <div className="h-[200px] w-full min-w-0 relative">
               {isMounted && (
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minHeight={200} debounce={100}>
                 <AreaChart data={chartData}>
                   <defs>
                     <linearGradient id="colorPostsP" x1="0" y1="0" x2="0" y2="1">

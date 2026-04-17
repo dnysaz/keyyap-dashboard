@@ -137,7 +137,7 @@ export default function AnalyticsPage() {
                </div>
               <div className="h-[350px] w-full min-w-0 relative">
                 {isMounted && (
-                  <ResponsiveContainer width="100%" height="100%">
+                  <ResponsiveContainer width="100%" height="100%" minHeight={350} debounce={100}>
                     <AreaChart data={growthData}>
                       <defs>
                         <linearGradient id="colorUsersAn" x1="0" y1="0" x2="0" y2="1">

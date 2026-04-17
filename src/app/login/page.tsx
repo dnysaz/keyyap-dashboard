@@ -16,14 +16,16 @@ export default function LoginPage() {
     setError('')
     setIsLoading(true)
 
-    // Simulate small delay for better feel
-    setTimeout(() => {
-      const success = login(email, password)
+    try {
+      const success = await login(email, password)
       if (!success) {
         setError('Invalid admin credentials. Please try again.')
         setIsLoading(false)
       }
-    }, 1000)
+    } catch (err) {
+      setError('An error occurred during login.')
+      setIsLoading(false)
+    }
   }
 
   return (
