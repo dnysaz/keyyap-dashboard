@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { isAdmin } from '@/app/actions/auth'
 
 interface AuthContextType {
   isAuthenticated: boolean
@@ -12,8 +13,6 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
-
-const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<any>(null)
@@ -26,25 +25,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Initial session check
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession()
-      handleAuthChange(session)
+      await handleAuthChange(session)
       setIsLoading(false)
     }
 
     checkSession()
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      handleAuthChange(session)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      await handleAuthChange(session)
     })
 
     return () => subscription.unsubscribe()
   }, [])
 
-  const handleAuthChange = (session: any) => {
+  const handleAuthChange = async (session: any) => {
     if (session?.user) {
-      // If admin email is set in env, verify it
-      if (ADMIN_EMAIL && session.user.email !== ADMIN_EMAIL) {
-        supabase.auth.signOut()
+      // Secure server-side check
+      const authorized = await isAdmin(session.user.email)
+      
+      if (!authorized) {
+        await supabase.auth.signOut()
         setUser(null)
         setIsAuthenticated(false)
         return
@@ -68,8 +69,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [isAuthenticated, pathname, isLoading, router])
 
   const login = async (email: string, pass: string) => {
-    // 1. Check if email matches admin email (optional client side check)
-    if (ADMIN_EMAIL && email !== ADMIN_EMAIL) {
+    // 1. Secure server-side pre-check
+    const authorized = await isAdmin(email)
+    if (!authorized) {
       return { success: false, error: 'Access denied: You are not authorized to access this dashboard.' }
     }
 
