@@ -17,9 +17,9 @@ export default function LoginPage() {
     setIsLoading(true)
 
     try {
-      const success = await login(email, password)
-      if (!success) {
-        setError('Invalid admin credentials. Please try again.')
+      const result = await login(email, password)
+      if (!result.success) {
+        setError(result.error || 'Invalid admin credentials. Please try again.')
         setIsLoading(false)
       }
     } catch (err) {

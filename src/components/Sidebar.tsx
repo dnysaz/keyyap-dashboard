@@ -10,7 +10,8 @@ import {
   Settings, 
   Megaphone,
   LogOut,
-  X
+  X,
+  Database
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/context/AuthContext'
@@ -22,6 +23,7 @@ const navigation = [
   { name: 'Analytics', href: '/analytics', icon: BarChart3 },
   { name: 'Settings', href: '/settings', icon: Settings },
   { name: 'Ads Manager', href: '/ads', icon: Megaphone },
+  { name: 'Supabase', href: '/supabase', icon: Database },
 ]
 
 interface SidebarProps {

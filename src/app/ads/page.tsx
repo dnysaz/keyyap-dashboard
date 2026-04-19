@@ -21,10 +21,20 @@ import {
   BarChart3,
   Monitor,
   Layout,
-  AlertCircle
+  AlertCircle,
+  Activity
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { format } from 'date-fns'
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer
+} from 'recharts'
 
 const DRAFT_KEY = 'keyyap_ad_draft'
 
@@ -49,6 +59,8 @@ export default function AdsManagerPage() {
   const [currentAd, setCurrentAd] = useState<any>(null)
   const [uploadingImage, setUploadingImage] = useState(false)
   const [uploadingLogo, setUploadingLogo] = useState(false)
+  const [selectedAd, setSelectedAd] = useState<any>(null)
+  const [isDiscardModalOpen, setIsDiscardModalOpen] = useState(false)
   
   const compressImage = (file: File, maxWidth: number, quality: number): Promise<Blob> => {
     return new Promise((resolve, reject) => {
@@ -194,22 +206,22 @@ export default function AdsManagerPage() {
         brand_logo_url: ad.brand_logo_url || ''
       })
     } else {
-      const savedDraft = localStorage.getItem(DRAFT_KEY)
-      if (savedDraft) {
-        try {
-          const parsed = JSON.parse(savedDraft)
-          if (parsed.title || parsed.description) {
-            if (window.confirm('You have an unsaved draft. Do you want to restore it?')) {
-              setFormData(parsed)
-            } else {
-              localStorage.removeItem(DRAFT_KEY)
-            }
-          }
-        } catch (e) {
-          localStorage.removeItem(DRAFT_KEY)
-        }
-      }
+      // Always start fresh — no more draft restore prompt
+      localStorage.removeItem(DRAFT_KEY)
       setCurrentAd(null)
+      setFormData({
+        title: '',
+        description: '',
+        external_link: '',
+        image_url: '',
+        cta_text: 'Learn More',
+        placement: 'feed',
+        image_position: 'bottom',
+        status: 'active',
+        visual_style: 'flat',
+        bg_color: '#ffffff',
+        brand_logo_url: ''
+      })
     }
     setIsModalOpen(true)
   }
@@ -224,8 +236,9 @@ export default function AdsManagerPage() {
       } else {
         const { error } = await supabase.from('ads').insert([formData])
         if (error) throw error
-        localStorage.removeItem(DRAFT_KEY)
       }
+      // Always clean up draft and reset form after successful save
+      localStorage.removeItem(DRAFT_KEY)
       setIsModalOpen(false)
       fetchAds()
     } catch (err: any) {
@@ -236,16 +249,18 @@ export default function AdsManagerPage() {
   }
 
   const handleDiscard = () => {
-    if (!currentAd && (formData.title || formData.description)) {
-      if (window.confirm('Discard draft?')) {
-        localStorage.removeItem(DRAFT_KEY)
-        setIsModalOpen(false)
-      } else {
-        setIsModalOpen(false)
-      }
+    const hasDraft = !currentAd && (formData.title || formData.description || formData.image_url)
+    if (hasDraft) {
+      setIsDiscardModalOpen(true)
     } else {
       setIsModalOpen(false)
     }
+  }
+
+  const executeDiscard = () => {
+    localStorage.removeItem(DRAFT_KEY)
+    setIsDiscardModalOpen(false)
+    setIsModalOpen(false)
   }
 
   const confirmDelete = (id: string) => {
@@ -287,106 +302,239 @@ export default function AdsManagerPage() {
           </button>
         </header>
 
-        <div className="p-10 space-y-12 overflow-y-auto no-scrollbar">
-          <div className="flex items-center gap-12 border-b border-gray-50 pb-10">
-             <div className="space-y-1">
-                <p className="text-[10px] font-medium text-gray-400 uppercase tracking-widest">Total Impressions</p>
-                <span className="text-2xl font-normal text-gray-800">{ads.reduce((acc, curr) => acc + (curr.views_count || 0), 0).toLocaleString()}</span>
-             </div>
-             <div className="space-y-1">
-                <p className="text-[10px] font-medium text-gray-400 uppercase tracking-widest">Engagements</p>
-                <span className="text-2xl font-normal text-gray-800">{ads.reduce((acc, curr) => acc + (curr.clicks_count || 0), 0).toLocaleString()}</span>
-             </div>
+        {/* Split Panel Layout */}
+        <div className="flex flex-1 overflow-hidden h-[calc(100vh-64px)]">
+
+          {/* LEFT PANEL — Ad Previews List */}
+          <div className="w-[380px] shrink-0 border-r border-gray-100 overflow-y-auto no-scrollbar bg-gray-50/30">
+            <div className="p-4 border-b border-gray-100 bg-white sticky top-0 z-10 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Campaigns</p>
+                <p className="text-[11px] text-gray-500 mt-0.5">{ads.length} total · {ads.filter(a => a.status === 'active').length} active</p>
+              </div>
+            </div>
+
+            {loading && ads.length === 0 ? (
+              <div className="py-20 flex justify-center"><Loader2 className="w-5 h-5 text-orange-400 animate-spin" /></div>
+            ) : ads.length === 0 ? (
+              <div className="py-20 text-center text-[11px] uppercase tracking-widest text-gray-300">No campaigns</div>
+            ) : (
+              <div className="divide-y divide-gray-50">
+                {ads.map((ad) => (
+                  <button
+                    key={ad.id}
+                    onClick={() => setSelectedAd(ad)}
+                    className={`w-full text-left transition-all duration-200 relative group ${selectedAd?.id === ad.id ? 'bg-orange-50/60 border-l-2 border-orange-400' : 'bg-white hover:bg-gray-50 border-l-2 border-transparent'}`}
+                  >
+                    {/* Native Ad Preview */}
+                    <div className="p-4" style={{ backgroundColor: selectedAd?.id === ad.id ? undefined : (ad.bg_color !== '#ffffff' ? ad.bg_color : undefined) }}>
+                      <div className="flex items-start gap-3">
+                        {ad.brand_logo_url ? (
+                          <img src={ad.brand_logo_url} alt="Logo" className="w-8 h-8 rounded-full object-cover shrink-0 shadow-sm" />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-orange-100 shrink-0 flex items-center justify-center text-orange-500 font-bold text-xs shadow-sm">
+                            {ad.title?.charAt(0)?.toUpperCase() || 'K'}
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 mb-0.5">
+                            <span className="text-[12px] font-bold text-gray-900 truncate">{ad.title}</span>
+                            <span className={`shrink-0 px-1 py-px rounded text-[7px] font-bold uppercase tracking-widest ${ad.status === 'active' ? 'bg-orange-100 text-orange-500' : 'bg-gray-100 text-gray-400'}`}>
+                              {ad.status}
+                            </span>
+                          </div>
+                          <p className="text-[9px] text-gray-400 uppercase tracking-widest mb-1.5">Promoted · {ad.placement}</p>
+                          {/* Layout: image left OR image bottom */}
+                          {ad.image_url && ad.image_position === 'left' ? (
+                            <div className="mt-1.5 flex gap-2 items-start">
+                              <div className="w-16 h-16 rounded-lg overflow-hidden border border-gray-100 bg-gray-50 shrink-0">
+                                <img src={ad.image_url} alt="" className="w-full h-full object-cover" />
+                              </div>
+                              <p className="text-[11px] text-gray-600 leading-snug line-clamp-3 flex-1">{ad.description}</p>
+                            </div>
+                          ) : (
+                            <>
+                              <p className="text-[11px] text-gray-600 leading-snug line-clamp-2">{ad.description}</p>
+                              {ad.image_url && (
+                                <div className="mt-2 rounded-lg overflow-hidden border border-gray-100 bg-gray-50">
+                                  <img src={ad.image_url} alt="" className="w-full h-auto object-contain" />
+                                </div>
+                              )}
+                            </>
+                          )}
+                          <div className="mt-2 inline-flex items-center gap-1 px-2.5 py-1 border border-gray-200 bg-white rounded-full text-[8px] font-bold text-orange-400">
+                            {ad.cta_text || 'Learn More'} <ExternalLink className="w-2.5 h-2.5" />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    {/* Mini stats bar */}
+                    <div className="px-4 pb-3 flex gap-3 text-[9px] text-gray-400 font-medium">
+                      <span className="flex items-center gap-1"><Eye className="w-3 h-3" />{(ad.views_count || 0).toLocaleString()} views</span>
+                      <span className="flex items-center gap-1 text-orange-400"><MousePointerClick className="w-3 h-3" />{(ad.clicks_count || 0).toLocaleString()} clicks</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 text-[11px]">
-            {loading && ads.length === 0 ? (
-               <div className="col-span-full py-20 text-center"><Loader2 className="w-6 h-6 text-orange-500 animate-spin mx-auto" /></div>
-            ) : ads.length === 0 ? (
-               <div className="col-span-full py-20 text-center uppercase tracking-widest text-gray-400">No campaigns found</div>
+          {/* RIGHT PANEL — Analytics Detail */}
+          <div className="flex-1 overflow-y-auto no-scrollbar">
+            {!selectedAd ? (
+              <div className="h-full flex flex-col items-center justify-center gap-4 text-center p-10">
+                <div className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center">
+                  <BarChart3 className="w-8 h-8 text-gray-200" />
+                </div>
+                <div>
+                  <p className="text-[13px] font-bold text-gray-300">Select a campaign</p>
+                  <p className="text-[11px] text-gray-300 mt-1">Click any ad on the left to view its analytics</p>
+                </div>
+              </div>
             ) : (
-              ads.map((ad) => (
-                <div 
-                  key={ad.id} 
-                  className="group relative bg-white border border-gray-100 rounded-xl overflow-hidden transition-all duration-300 hover:border-orange-200 hover:shadow-lg hover:-translate-y-1"
-                  style={{ backgroundColor: ad.bg_color || '#ffffff' }}
-                >
-                  {/* Floating Action Menu on Hover */}
-                  <div className="absolute top-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10 bg-white/90 backdrop-blur rounded p-1 border border-gray-50 shadow-sm">
-                     <button onClick={() => toggleStatus(ad)} className="p-1.5 text-gray-400 hover:text-orange-500 transition-colors" title={ad.status === 'active' ? 'Pause' : 'Activate'}>
-                       {ad.status === 'active' ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
-                     </button>
-                     <button onClick={() => handleOpenModal(ad)} className="p-1.5 text-gray-400 hover:text-orange-500 transition-colors" title="Edit">
-                       <BarChart3 className="w-3 h-3" />
-                     </button>
-                     <button onClick={() => confirmDelete(ad.id)} className="p-1.5 text-gray-400 hover:text-red-400 transition-colors" title="Delete">
-                       <Trash2 className="w-3 h-3" />
-                     </button>
-                  </div>
-                  
-                  {/* Native Simulation */}
-                  <div className="flex items-start gap-3 p-5">
-                    {ad.brand_logo_url ? (
-                       <img src={ad.brand_logo_url} alt="Brand Logo" className="w-9 h-9 rounded-full object-cover flex-shrink-0 shadow-sm" />
+              <div className="p-8 space-y-8">
+                {/* Header */}
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    {selectedAd.brand_logo_url ? (
+                      <img src={selectedAd.brand_logo_url} alt="Logo" className="w-12 h-12 rounded-full object-cover shadow" />
                     ) : (
-                       <div className="w-9 h-9 rounded-full bg-orange-100 flex-shrink-0 flex items-center justify-center text-orange-600 font-bold text-[10px] shadow-sm">
-                         {ad.title ? ad.title.charAt(0).toUpperCase() : 'K'}
-                       </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-col mb-2 focus:outline-none pr-10">
-                         <div className="flex items-center gap-2">
-                           <span className="text-[12px] font-bold text-gray-900 truncate leading-tight">{ad.title || 'Brand Name'}</span>
-                           <span className={`px-1.5 py-px rounded text-[8px] font-bold uppercase tracking-widest ${
-                              ad.status === 'active' ? 'bg-orange-50 text-orange-600' : 'bg-gray-100 text-gray-400'
-                           }`}>
-                             {ad.status}
-                           </span>
-                         </div>
-                         <span className="text-[9px] text-gray-400 font-normal uppercase tracking-widest mt-0.5">Promoted Content • {ad.placement}</span>
+                      <div className="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center text-orange-500 font-bold text-lg shadow">
+                        {selectedAd.title?.charAt(0)?.toUpperCase() || 'K'}
                       </div>
-                      {ad.image_position === 'left' ? (
-                        <div className="flex gap-4 mb-3">
-                          {ad.image_url && (
-                             <div className="w-24 h-24 flex-shrink-0 bg-white rounded-lg overflow-hidden border border-gray-100 shadow-[0_2px_8px_-4px_rgba(0,0,0,0.1)] flex items-center justify-center">
-                                <img src={ad.image_url} alt="p" className="w-full h-full object-contain" />
-                             </div>
-                          )}
-                          <p className="text-[11px] text-gray-600 leading-relaxed font-normal whitespace-pre-wrap line-clamp-3">
-                            {ad.description || 'Campaign details...'}
-                          </p>
-                        </div>
-                      ) : (
-                        <>
-                          <p className="text-[11px] text-gray-600 leading-relaxed font-normal mb-3 whitespace-pre-wrap line-clamp-3">
-                            {ad.description || 'Campaign details...'}
-                          </p>
-                          {ad.image_url && (
-                            <div className="block mb-3 bg-white rounded-lg overflow-hidden border border-gray-100 shadow-[0_2px_8px_-4px_rgba(0,0,0,0.1)] flex items-center justify-center">
-                               <img src={ad.image_url} alt="p" className="w-full h-auto max-h-32 object-contain" />
-                            </div>
-                          )}
-                        </>
-                      )}
-                      
-                      <div className="mt-4 pt-3 border-t border-gray-100/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 bg-white rounded-full text-[9px] font-bold text-orange-500 shadow-sm transition-all hover:bg-orange-50 w-max">
-                          {ad.cta_text || 'Learn More'}
-                          <ExternalLink className="w-3 h-3" />
-                        </div>
-                        <div className="flex gap-2.5 text-[9px] font-medium text-gray-400 uppercase tracking-widest">
-                           <span className="flex items-center gap-1 opacity-70" title="Views"><Eye className="w-3 h-3" /> {ad.views_count || 0}</span>
-                           <span className="flex items-center gap-1 text-orange-500/80" title="Clicks"><MousePointerClick className="w-3 h-3" /> {ad.clicks_count || 0}</span>
-                        </div>
+                    )}
+                    <div>
+                      <h2 className="text-[16px] font-bold text-gray-900">{selectedAd.title}</h2>
+                      <p className="text-[10px] text-gray-400 uppercase tracking-widest mt-0.5">{selectedAd.placement} · {selectedAd.cta_text}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => toggleStatus(selectedAd)} className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-100 rounded-lg text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:bg-gray-50 transition-colors">
+                      {selectedAd.status === 'active' ? <><Pause className="w-3 h-3" /> Pause</> : <><Play className="w-3 h-3" /> Activate</>}
+                    </button>
+                    <button onClick={() => handleOpenModal(selectedAd)} className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-500 text-white rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-orange-600 transition-colors">
+                      Edit
+                    </button>
+                    <button onClick={() => confirmDelete(selectedAd.id)} className="p-2 text-gray-300 hover:text-red-400 hover:bg-red-50 rounded-lg transition-colors">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Stats Cards */}
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="p-5 border border-gray-100 rounded-xl">
+                    <p className="text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-2 flex items-center gap-1"><Eye className="w-3 h-3" /> Total Views</p>
+                    <p className="text-3xl font-bold text-gray-800">{(selectedAd.views_count || 0).toLocaleString()}</p>
+                  </div>
+                  <div className="p-5 border border-orange-100 bg-orange-50/30 rounded-xl">
+                    <p className="text-[9px] font-bold uppercase tracking-widest text-orange-400 mb-2 flex items-center gap-1"><MousePointerClick className="w-3 h-3" /> Total Clicks</p>
+                    <p className="text-3xl font-bold text-orange-500">{(selectedAd.clicks_count || 0).toLocaleString()}</p>
+                  </div>
+                  <div className="p-5 border border-gray-100 rounded-xl">
+                    <p className="text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-2 flex items-center gap-1"><Activity className="w-3 h-3" /> CTR</p>
+                    <p className="text-3xl font-bold text-gray-800">
+                      {selectedAd.views_count > 0 ? ((selectedAd.clicks_count / selectedAd.views_count) * 100).toFixed(2) : '0.00'}%
+                    </p>
+                  </div>
+                </div>
+
+                {/* Main Chart: Views vs Clicks */}
+                <div>
+                  <div className="flex items-center justify-between pb-4 mb-4 border-b border-gray-50">
+                    <h3 className="text-[11px] font-medium uppercase tracking-widest text-gray-400 flex items-center gap-2">
+                      <BarChart3 className="w-4 h-4 text-orange-400" />
+                      Performance Overview
+                    </h3>
+                    <div className="flex gap-3 text-[9px] font-bold text-gray-300 uppercase tracking-widest">
+                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-gray-200 inline-block"/>Views</span>
+                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-orange-400 inline-block"/>Clicks</span>
+                    </div>
+                  </div>
+                  <div className="h-[200px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart
+                        data={[
+                          { name: 'Start', Views: 0, Clicks: 0 },
+                          { name: 'Total', Views: selectedAd.views_count || 0, Clicks: selectedAd.clicks_count || 0 }
+                        ]}
+                        margin={{ top: 4, right: 4, left: -20, bottom: 0 }}
+                      >
+                        <defs>
+                          <linearGradient id="gradViews" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#9ca3af" stopOpacity={0.12}/>
+                            <stop offset="95%" stopColor="#9ca3af" stopOpacity={0}/>
+                          </linearGradient>
+                          <linearGradient id="gradClicks" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#f97316" stopOpacity={0.15}/>
+                            <stop offset="95%" stopColor="#f97316" stopOpacity={0}/>
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f8fafc" />
+                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#9ca3af', fontSize: 10 }} />
+                        <YAxis axisLine={false} tickLine={false} tick={{ fill: '#9ca3af', fontSize: 10 }} />
+                        <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', fontSize: '11px' }} />
+                        <Area type="monotone" dataKey="Views" stroke="#9ca3af" strokeWidth={2} fill="url(#gradViews)" dot={{ r: 4, fill: '#9ca3af' }} />
+                        <Area type="monotone" dataKey="Clicks" stroke="#f97316" strokeWidth={2} fill="url(#gradClicks)" dot={{ r: 4, fill: '#f97316' }} />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                {/* Engagement Breakdown */}
+                <div className="bg-gray-50/50 border border-gray-100 rounded-2xl p-6 space-y-4">
+                  <h3 className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Engagement Breakdown</h3>
+                  <div className="space-y-3">
+                    <div>
+                      <div className="flex items-center justify-between text-[11px] mb-1">
+                        <span className="font-medium text-gray-600">View Rate</span>
+                        <span className="font-bold text-gray-800">{(selectedAd.views_count || 0).toLocaleString()} impr.</span>
+                      </div>
+                      <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                        <div className="h-full bg-gray-400 rounded-full" style={{ width: '100%' }} />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex items-center justify-between text-[11px] mb-1">
+                        <span className="font-medium text-gray-600">Click-Through</span>
+                        <span className="font-bold text-orange-500">{(selectedAd.clicks_count || 0).toLocaleString()} clicks</span>
+                      </div>
+                      <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-orange-400 rounded-full transition-all duration-700"
+                          style={{ width: `${selectedAd.views_count > 0 ? Math.min(100, (selectedAd.clicks_count / selectedAd.views_count) * 100) : 0}%` }}
+                        />
                       </div>
                     </div>
                   </div>
                 </div>
-              ))
+
+                {/* Meta Info */}
+                <div className="grid grid-cols-2 gap-4 text-[11px]">
+                  <div className="p-4 border border-gray-100 rounded-xl">
+                    <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest mb-1">Placement</p>
+                    <p className="font-bold text-gray-700 capitalize">{selectedAd.placement}</p>
+                  </div>
+                  <div className="p-4 border border-gray-100 rounded-xl">
+                    <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest mb-1">Status</p>
+                    <p className={`font-bold capitalize ${selectedAd.status === 'active' ? 'text-orange-500' : 'text-gray-400'}`}>{selectedAd.status}</p>
+                  </div>
+                  <div className="p-4 border border-gray-100 rounded-xl">
+                    <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest mb-1">CTA Button</p>
+                    <p className="font-bold text-gray-700">{selectedAd.cta_text}</p>
+                  </div>
+                  <div className="p-4 border border-gray-100 rounded-xl">
+                    <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest mb-1">Image Layout</p>
+                    <p className="font-bold text-gray-700 capitalize">{selectedAd.image_position || 'bottom'}</p>
+                  </div>
+                </div>
+              </div>
             )}
           </div>
         </div>
       </main>
+
+
 
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex justify-end">
@@ -606,6 +754,38 @@ export default function AdsManagerPage() {
                       className="w-full bg-white border border-gray-50 text-gray-300 py-3 rounded text-[10px] font-bold uppercase tracking-widest hover:bg-gray-50 transition-all"
                     >
                       Keep Campaign
+                    </button>
+                 </div>
+              </div>
+           </div>
+        </div>
+      )}
+
+      {/* DISCARD DRAFT CONFIRMATION MODAL */}
+      {isDiscardModalOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+           <div className="absolute inset-0 bg-white/60 backdrop-blur-sm" onClick={() => setIsDiscardModalOpen(false)} />
+           <div className="relative w-full max-w-sm bg-white border border-gray-100 rounded-xl p-8 shadow-2xl animate-in fade-in zoom-in duration-200">
+              <div className="flex flex-col items-center text-center space-y-6">
+                 <div className="w-12 h-12 bg-orange-50 text-orange-400 rounded-full flex items-center justify-center">
+                   <X className="w-6 h-6" />
+                 </div>
+                 <div className="space-y-2">
+                    <h3 className="text-[13px] font-bold text-gray-900 uppercase tracking-tight">Discard Draft?</h3>
+                    <p className="text-[11px] text-gray-400 font-normal leading-relaxed px-4">You have unsaved changes. This draft will be permanently discarded.</p>
+                 </div>
+                 <div className="flex flex-col w-full gap-3">
+                    <button 
+                      onClick={executeDiscard}
+                      className="w-full bg-orange-500 text-white py-3 rounded text-[10px] font-bold uppercase tracking-widest hover:bg-orange-600 transition-all"
+                    >
+                      Discard Draft
+                    </button>
+                    <button 
+                      onClick={() => setIsDiscardModalOpen(false)}
+                      className="w-full bg-white border border-gray-50 text-gray-300 py-3 rounded text-[10px] font-bold uppercase tracking-widest hover:bg-gray-50 transition-all"
+                    >
+                      Keep Editing
                     </button>
                  </div>
               </div>

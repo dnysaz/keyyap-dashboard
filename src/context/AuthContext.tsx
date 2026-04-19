@@ -6,26 +6,56 @@ import { supabase } from '@/lib/supabase'
 
 interface AuthContextType {
   isAuthenticated: boolean
-  login: (email: string, pass: string) => Promise<boolean>
+  user: any
+  login: (email: string, pass: string) => Promise<{ success: boolean; error?: string }>
   logout: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<any>(null)
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false)
   const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
   const pathname = usePathname()
 
   useEffect(() => {
-    // Check local storage on mount
-    const authStatus = localStorage.getItem('keyyap_admin_auth')
-    if (authStatus === 'true') {
-      setIsAuthenticated(true)
+    // Initial session check
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      handleAuthChange(session)
+      setIsLoading(false)
     }
-    setIsLoading(false)
+
+    checkSession()
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      handleAuthChange(session)
+    })
+
+    return () => subscription.unsubscribe()
   }, [])
+
+  const handleAuthChange = (session: any) => {
+    if (session?.user) {
+      // If admin email is set in env, verify it
+      if (ADMIN_EMAIL && session.user.email !== ADMIN_EMAIL) {
+        supabase.auth.signOut()
+        setUser(null)
+        setIsAuthenticated(false)
+        return
+      }
+      setUser(session.user)
+      setIsAuthenticated(true)
+    } else {
+      setUser(null)
+      setIsAuthenticated(false)
+    }
+  }
 
   useEffect(() => {
     if (!isLoading) {
@@ -38,39 +68,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [isAuthenticated, pathname, isLoading, router])
 
   const login = async (email: string, pass: string) => {
+    // 1. Check if email matches admin email (optional client side check)
+    if (ADMIN_EMAIL && email !== ADMIN_EMAIL) {
+      return { success: false, error: 'Access denied: You are not authorized to access this dashboard.' }
+    }
+
+    // 2. Perform Supabase Login
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password: pass
     })
 
     if (error) {
-      console.error('Login error:', error.message)
-      return false
+      return { success: false, error: error.message }
     }
 
     if (data.user) {
-      setIsAuthenticated(true)
-      localStorage.setItem('keyyap_admin_auth', 'true')
-      return true
+      return { success: true }
     }
-    return false
+    
+    return { success: false, error: 'Login failed' }
   }
 
   const logout = async () => {
     await supabase.auth.signOut()
-    setIsAuthenticated(false)
-    localStorage.removeItem('keyyap_admin_auth')
     router.push('/login')
   }
 
   if (isLoading) {
-    return <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
-    </div>
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    )
   }
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, user, login, logout }}>
       {children}
     </AuthContext.Provider>
   )
@@ -83,3 +117,4 @@ export function useAuth() {
   }
   return context
 }
+
