@@ -11,7 +11,8 @@ import {
   Megaphone,
   LogOut,
   X,
-  Database
+  Database,
+  BookOpen
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/context/AuthContext'
@@ -20,6 +21,7 @@ const navigation = [
   { name: 'Overview', href: '/', icon: LayoutDashboard },
   { name: 'Users', href: '/users', icon: Users },
   { name: 'Posts', href: '/posts', icon: FileText },
+  { name: 'Blog', href: '/blog', icon: BookOpen },
   { name: 'Analytics', href: '/analytics', icon: BarChart3 },
   { name: 'Settings', href: '/settings', icon: Settings },
   { name: 'Ads Manager', href: '/ads', icon: Megaphone },
