@@ -71,6 +71,7 @@ export default function WordPressBlogPage() {
   const [uploadingImage, setUploadingImage] = useState(false)
   const [linkPreviews, setLinkPreviews] = useState<LinkPreview[]>([])
   const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   
   const [formData, setFormData] = useState({
     title: '',
@@ -219,9 +220,21 @@ export default function WordPressBlogPage() {
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this article?')) return
-    await supabase.from('blogs').delete().eq('id', id)
-    fetchBlogs()
+    setDeleteConfirmId(id)
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteConfirmId) return
+    setIsSaving(true)
+    try {
+      await supabase.from('blogs').delete().eq('id', deleteConfirmId)
+      setDeleteConfirmId(null)
+      fetchBlogs()
+    } catch (err: any) {
+      alert('Delete failed: ' + err.message)
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const handleToggleSelectAll = () => {
@@ -549,7 +562,7 @@ export default function WordPressBlogPage() {
                                  <div className="flex gap-2 text-[11px] mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <button onClick={(e) => { e.stopPropagation(); handleOpenEditor(blog) }} className="text-orange-500 font-bold hover:underline">Edit</button>
                                     <span className="text-gray-200">|</span>
-                                    <button onClick={(e) => { e.stopPropagation(); handleDelete(blog.id) }} className="text-red-500 hover:underline">Trash</button>
+                                    <button onClick={(e) => { e.stopPropagation(); handleDelete(blog.id) }} className="text-red-500 hover:underline">Delete</button>
                                     <span className="text-gray-200">|</span>
                                     <a href={`${process.env.NEXT_PUBLIC_APP_URL}/blog/${blog.slug}`} target="_blank" className="text-gray-400 hover:text-orange-500">View</a>
                                  </div>
@@ -576,11 +589,11 @@ export default function WordPressBlogPage() {
                         {/* EXPANDED STATS SECTION */}
                         {expandedId === blog.id && (
                           <tr className="bg-white">
-                             <td colSpan={6} className="px-8 py-10 border-b border-gray-100 shadow-inner bg-gray-50/30">
+                             <td colSpan={6} className="px-8 py-10 border-b border-gray-100 bg-gray-50/50">
                                 <div className="flex flex-col lg:flex-row gap-10">
                                    {/* Mini Stats Card */}
                                    <div className="lg:w-1/3 grid grid-cols-2 gap-4">
-                                      <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
+                                      <div className="bg-white p-4 rounded-2xl border border-gray-100">
                                          <div className="flex items-center gap-3 mb-2">
                                             <div className="p-2 bg-orange-50 rounded-lg text-orange-500">
                                                <Eye className="w-4 h-4" />
@@ -589,7 +602,7 @@ export default function WordPressBlogPage() {
                                          </div>
                                          <p className="text-xl font-bold text-gray-900">{blog.views || 0}</p>
                                       </div>
-                                      <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
+                                      <div className="bg-white p-4 rounded-2xl border border-gray-100">
                                          <div className="flex items-center gap-3 mb-2">
                                             <div className="p-2 bg-blue-50 rounded-lg text-blue-500">
                                                <MessageCircle className="w-4 h-4" />
@@ -598,7 +611,7 @@ export default function WordPressBlogPage() {
                                          </div>
                                          <p className="text-xl font-bold text-gray-900">{blog.comments_count || 0}</p>
                                       </div>
-                                      <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm col-span-2">
+                                      <div className="bg-white p-4 rounded-2xl border border-gray-100 col-span-2">
                                          <div className="flex items-center gap-3 mb-2">
                                             <div className="p-2 bg-emerald-50 rounded-lg text-emerald-500">
                                                <BarChart2 className="w-4 h-4" />
@@ -619,8 +632,8 @@ export default function WordPressBlogPage() {
                                    </div>
 
                                    {/* Chart Section */}
-                                   <div className="flex-1 bg-white p-6 rounded-3xl border border-gray-100 shadow-sm h-[260px]">
-                                      <div className="flex items-center justify-between mb-6">
+                                   <div className="flex-1 bg-white p-6 rounded-3xl border border-gray-100 h-[280px]">
+                                      <div className="flex items-center justify-between mb-8">
                                          <p className="text-[12px] font-bold text-gray-400 uppercase tracking-widest">7 Days Performance</p>
                                          <div className="flex items-center gap-2 text-[11px] font-bold text-emerald-500">
                                             <div className="w-2 h-2 bg-emerald-500 rounded-full" />
@@ -643,8 +656,22 @@ export default function WordPressBlogPage() {
                                                   <stop offset="95%" stopColor="#f97316" stopOpacity={0}/>
                                                </linearGradient>
                                             </defs>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                            <XAxis 
+                                              dataKey="name" 
+                                              axisLine={false} 
+                                              tickLine={false} 
+                                              tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 'bold' }}
+                                              dy={10}
+                                            />
+                                            <YAxis 
+                                              axisLine={false} 
+                                              tickLine={false} 
+                                              tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 'bold' }}
+                                            />
                                             <Tooltip 
-                                               contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', fontSize: '12px' }}
+                                               contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: 'none', background: '#1e293b', color: '#fff', fontSize: '11px' }}
+                                               itemStyle={{ color: '#fb923c' }}
                                             />
                                             <Area type="monotone" dataKey="views" stroke="#f97316" strokeWidth={3} fillOpacity={1} fill="url(#colorViews)" />
                                          </AreaChart>
@@ -673,6 +700,37 @@ export default function WordPressBlogPage() {
            </div>
         </div>
       </main>
+
+      {/* DELETE CONFIRMATION MODAL */}
+      {deleteConfirmId && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+           <div className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm" onClick={() => setDeleteConfirmId(null)} />
+           <div className="relative bg-white rounded-3xl p-8 max-w-sm w-full border border-gray-100 flex flex-col items-center text-center">
+              <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center text-red-500 mb-6">
+                 <Trash2 className="w-8 h-8" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Delete Article?</h3>
+              <p className="text-sm text-gray-500 mb-8 leading-relaxed">
+                 Are you sure you want to delete this article? This action cannot be undone and will remove all associated comments.
+              </p>
+              <div className="flex gap-3 w-full">
+                 <button 
+                    onClick={() => setDeleteConfirmId(null)}
+                    className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-sm transition-all"
+                 >
+                    Cancel
+                 </button>
+                 <button 
+                    onClick={confirmDelete}
+                    disabled={isSaving}
+                    className="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold text-sm transition-all shadow-lg shadow-red-500/20 flex items-center justify-center gap-2"
+                 >
+                    {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Delete Now'}
+                 </button>
+              </div>
+           </div>
+        </div>
+      )}
     </div>
   )
 }
