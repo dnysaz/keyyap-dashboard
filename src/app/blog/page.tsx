@@ -676,13 +676,7 @@ export default function WordPressBlogPage() {
                                               <Loader2 className="w-6 h-6 animate-spin text-gray-200" />
                                            </div>
                                          ) : blogStats.length > 0 ? (
-                                           <AreaChart data={blogStats}>
-                                              <defs>
-                                                 <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="5%" stopColor="#f97316" stopOpacity={0.1}/>
-                                                    <stop offset="95%" stopColor="#f97316" stopOpacity={0}/>
-                                                 </linearGradient>
-                                              </defs>
+                                           <LineChart data={blogStats}>
                                               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                                               <XAxis 
                                                 dataKey="name" 
@@ -700,8 +694,8 @@ export default function WordPressBlogPage() {
                                                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: 'none', background: '#1e293b', color: '#fff', fontSize: '11px' }}
                                                  itemStyle={{ color: '#fb923c' }}
                                               />
-                                              <Area type="monotone" dataKey="views" stroke="#f97316" strokeWidth={3} fillOpacity={1} fill="url(#colorViews)" />
-                                           </AreaChart>
+                                              <Line type="monotone" dataKey="views" stroke="#f97316" strokeWidth={3} dot={{ fill: '#f97316', strokeWidth: 2, r: 4 }} activeDot={{ r: 6, strokeWidth: 0 }} />
+                                           </LineChart>
                                          ) : (
                                            <div className="w-full h-full flex flex-col items-center justify-center text-gray-300 gap-2">
                                               <BarChart2 className="w-8 h-8 opacity-20" />
