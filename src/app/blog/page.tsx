@@ -676,26 +676,31 @@ export default function WordPressBlogPage() {
                                               <Loader2 className="w-6 h-6 animate-spin text-gray-200" />
                                            </div>
                                          ) : blogStats.length > 0 ? (
-                                           <LineChart data={blogStats}>
-                                              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                           <AreaChart data={blogStats}>
+                                              <defs>
+                                                <linearGradient id="colorViewsGraph" x1="0" y1="0" x2="0" y2="1">
+                                                  <stop offset="5%" stopColor="#f36c1e" stopOpacity={0.05}/>
+                                                  <stop offset="95%" stopColor="#f36c1e" stopOpacity={0}/>
+                                                </linearGradient>
+                                              </defs>
+                                              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f8fafc" />
                                               <XAxis 
                                                 dataKey="name" 
                                                 axisLine={false} 
                                                 tickLine={false} 
-                                                tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 'bold' }}
+                                                tick={{ fill: '#9ca3af', fontSize: 10 }}
                                                 dy={10}
                                               />
                                               <YAxis 
                                                 axisLine={false} 
                                                 tickLine={false} 
-                                                tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 'bold' }}
+                                                tick={{ fill: '#9ca3af', fontSize: 10 }}
                                               />
                                               <Tooltip 
-                                                 contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: 'none', background: '#1e293b', color: '#fff', fontSize: '11px' }}
-                                                 itemStyle={{ color: '#fb923c' }}
+                                                 contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', fontSize: '11px' }}
                                               />
-                                              <Line type="monotone" dataKey="views" stroke="#f97316" strokeWidth={3} dot={{ fill: '#f97316', strokeWidth: 2, r: 4 }} activeDot={{ r: 6, strokeWidth: 0 }} />
-                                           </LineChart>
+                                              <Area type="monotone" dataKey="views" stroke="#f36c1e" strokeWidth={2} fillOpacity={1} fill="url(#colorViewsGraph)" />
+                                           </AreaChart>
                                          ) : (
                                            <div className="w-full h-full flex flex-col items-center justify-center text-gray-300 gap-2">
                                               <BarChart2 className="w-8 h-8 opacity-20" />
