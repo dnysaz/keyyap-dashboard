@@ -122,16 +122,19 @@ export default function WordPressBlogPage() {
       .order('view_date', { ascending: true })
       .limit(7)
     
-    if (data) {
-      // Format dates for the chart (Sun, Mon, etc)
-      const formatted = data.map(s => ({
-        name: format(new Date(s.view_date), 'EEE'),
-        views: s.view_count
-      }))
-      setBlogStats(formatted)
-    } else {
-      setBlogStats([])
-    }
+    const last7Days = Array.from({ length: 7 }).map((_, i) => {
+      const d = new Date()
+      d.setDate(d.getDate() - (6 - i))
+      const dateString = format(d, 'yyyy-MM-dd')
+      
+      const foundMatch = data?.find(s => s.view_date === dateString)
+      return {
+        name: format(d, 'EEE'),
+        views: foundMatch ? foundMatch.view_count : 0
+      }
+    })
+    
+    setBlogStats(last7Days)
     setLoadingStats(false)
   }
 
