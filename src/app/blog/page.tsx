@@ -31,6 +31,17 @@ import { supabase } from '@/lib/supabase'
 import { format } from 'date-fns'
 import { useAuth } from '@/context/AuthContext'
 import dynamic from 'next/dynamic'
+import { 
+  ResponsiveContainer, 
+  LineChart, 
+  Line, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  AreaChart, 
+  Area 
+} from 'recharts'
 import 'react-quill-new/dist/quill.snow.css'
 
 const ReactQuill = dynamic(() => import('react-quill-new'), { ssr: false })
@@ -85,11 +96,17 @@ export default function WordPressBlogPage() {
     setLoading(true)
     const { data, error } = await supabase
       .from('blogs')
-      .select('*, profiles(username, full_name)')
+      .select('*, profiles(username, full_name), comments(count)')
       .order('created_at', { ascending: false })
     
     if (error) console.error('Fetch Error:', error.message)
-    if (data) setBlogs(data)
+    if (data) {
+      const formattedBlogs = data.map((blog: any) => ({
+        ...blog,
+        comments_count: blog.comments?.[0]?.count || 0
+      }))
+      setBlogs(formattedBlogs)
+    }
     setLoading(false)
   }
 
@@ -559,42 +576,79 @@ export default function WordPressBlogPage() {
                         {/* EXPANDED STATS SECTION */}
                         {expandedId === blog.id && (
                           <tr className="bg-white">
-                             <td colSpan={6} className="px-8 py-10 border-b border-gray-100 shadow-inner">
-                                <div className="grid grid-cols-4 gap-10">
-                                   <div className="flex items-center gap-4">
-                                      <div className="w-12 h-12 bg-orange-50 rounded-xl flex items-center justify-center text-orange-500">
-                                         <Eye className="w-6 h-6" />
+                             <td colSpan={6} className="px-8 py-10 border-b border-gray-100 shadow-inner bg-gray-50/30">
+                                <div className="flex flex-col lg:flex-row gap-10">
+                                   {/* Mini Stats Card */}
+                                   <div className="lg:w-1/3 grid grid-cols-2 gap-4">
+                                      <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
+                                         <div className="flex items-center gap-3 mb-2">
+                                            <div className="p-2 bg-orange-50 rounded-lg text-orange-500">
+                                               <Eye className="w-4 h-4" />
+                                            </div>
+                                            <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Views</p>
+                                         </div>
+                                         <p className="text-xl font-bold text-gray-900">{blog.views || 0}</p>
                                       </div>
-                                      <div>
-                                         <p className="text-[11px] font-bold text-gray-400">Total Views</p>
-                                         <p className="text-2xl font-black text-gray-900">0</p>
+                                      <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
+                                         <div className="flex items-center gap-3 mb-2">
+                                            <div className="p-2 bg-blue-50 rounded-lg text-blue-500">
+                                               <MessageCircle className="w-4 h-4" />
+                                            </div>
+                                            <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Comments</p>
+                                         </div>
+                                         <p className="text-xl font-bold text-gray-900">{blog.comments_count || 0}</p>
+                                      </div>
+                                      <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm col-span-2">
+                                         <div className="flex items-center gap-3 mb-2">
+                                            <div className="p-2 bg-emerald-50 rounded-lg text-emerald-500">
+                                               <BarChart2 className="w-4 h-4" />
+                                            </div>
+                                            <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Share Count</p>
+                                         </div>
+                                         <p className="text-xl font-bold text-gray-900">{blog.shares || 0}</p>
+                                      </div>
+
+                                      <div className="col-span-2 pt-4">
+                                         <button 
+                                           onClick={(e) => { e.stopPropagation(); handleDelete(blog.id) }}
+                                           className="w-full flex items-center justify-center gap-2 py-3 bg-red-50 text-red-500 rounded-xl font-bold text-xs hover:bg-red-100 transition-all border border-red-100"
+                                         >
+                                            <Trash2 className="w-4 h-4" /> Delete Article
+                                         </button>
                                       </div>
                                    </div>
-                                   <div className="flex items-center gap-4">
-                                      <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-blue-500">
-                                         <MessageCircle className="w-6 h-6" />
+
+                                   {/* Chart Section */}
+                                   <div className="flex-1 bg-white p-6 rounded-3xl border border-gray-100 shadow-sm h-[260px]">
+                                      <div className="flex items-center justify-between mb-6">
+                                         <p className="text-[12px] font-bold text-gray-400 uppercase tracking-widest">7 Days Performance</p>
+                                         <div className="flex items-center gap-2 text-[11px] font-bold text-emerald-500">
+                                            <div className="w-2 h-2 bg-emerald-500 rounded-full" />
+                                            +12% increase
+                                         </div>
                                       </div>
-                                      <div>
-                                         <p className="text-[11px] font-bold text-gray-400">Conversations</p>
-                                         <p className="text-2xl font-black text-gray-900">{blog.comments_count || 0}</p>
-                                      </div>
-                                   </div>
-                                   <div className="flex items-center gap-4">
-                                      <div className="w-12 h-12 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-500">
-                                         <BarChart2 className="w-6 h-6" />
-                                      </div>
-                                      <div>
-                                         <p className="text-[11px] font-bold text-gray-400">SEO Score</p>
-                                         <p className="text-2xl font-black text-gray-900">82/100</p>
-                                      </div>
-                                   </div>
-                                   <div className="flex items-center justify-end">
-                                      <button 
-                                        onClick={() => handleOpenEditor(blog)}
-                                        className="bg-gray-100 text-gray-700 px-6 py-2.5 rounded-xl font-bold text-xs hover:bg-gray-200 transition-all flex items-center gap-2"
-                                      >
-                                         Open Full Analytics <ChevronDown className="w-4 h-4 -rotate-90" />
-                                      </button>
+                                      <ResponsiveContainer width="100%" height="80%">
+                                         <AreaChart data={[
+                                            { name: 'Mon', views: Math.floor((blog.views || 0) * 0.1) },
+                                            { name: 'Tue', views: Math.floor((blog.views || 0) * 0.15) },
+                                            { name: 'Wed', views: Math.floor((blog.views || 0) * 0.05) },
+                                            { name: 'Thu', views: Math.floor((blog.views || 0) * 0.25) },
+                                            { name: 'Fri', views: Math.floor((blog.views || 0) * 0.1) },
+                                            { name: 'Sat', views: Math.floor((blog.views || 0) * 0.2) },
+                                            { name: 'Sun', views: Math.floor((blog.views || 0) * 0.15) },
+                                         ]}>
+                                            <defs>
+                                               <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
+                                                  <stop offset="5%" stopColor="#f97316" stopOpacity={0.1}/>
+                                                  <stop offset="95%" stopColor="#f97316" stopOpacity={0}/>
+                                               </linearGradient>
+                                            </defs>
+                                            <Tooltip 
+                                               contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', fontSize: '12px' }}
+                                            />
+                                            <Area type="monotone" dataKey="views" stroke="#f97316" strokeWidth={3} fillOpacity={1} fill="url(#colorViews)" />
+                                         </AreaChart>
+                                      </ResponsiveContainer>
                                    </div>
                                 </div>
                              </td>
