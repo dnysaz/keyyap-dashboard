@@ -60,6 +60,8 @@ export default function WordPressBlogPage() {
   const [loading, setLoading] = useState(true)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [statusFilter, setStatusFilter] = useState<'all' | 'published' | 'draft'>('all')
+  const [blogStats, setBlogStats] = useState<any[]>([])
+  const [loadingStats, setLoadingStats] = useState(false)
   
   // View States
   const [view, setView] = useState<'list' | 'editor'>('list')
@@ -110,6 +112,34 @@ export default function WordPressBlogPage() {
     }
     setLoading(false)
   }
+
+  async function fetchBlogStats(blogId: string) {
+    setLoadingStats(true)
+    const { data, error } = await supabase
+      .from('blog_stats')
+      .select('view_date, view_count')
+      .eq('blog_id', blogId)
+      .order('view_date', { ascending: true })
+      .limit(7)
+    
+    if (data) {
+      // Format dates for the chart (Sun, Mon, etc)
+      const formatted = data.map(s => ({
+        name: format(new Date(s.view_date), 'EEE'),
+        views: s.view_count
+      }))
+      setBlogStats(formatted)
+    } else {
+      setBlogStats([])
+    }
+    setLoadingStats(false)
+  }
+
+  useEffect(() => {
+    if (expandedId) {
+      fetchBlogStats(expandedId)
+    }
+  }, [expandedId])
 
   const compressImage = (file: File, maxWidth: number, quality: number): Promise<Blob> => {
     return new Promise((resolve, reject) => {
@@ -637,44 +667,47 @@ export default function WordPressBlogPage() {
                                          <p className="text-[12px] font-bold text-gray-400 uppercase tracking-widest">7 Days Performance</p>
                                          <div className="flex items-center gap-2 text-[11px] font-bold text-emerald-500">
                                             <div className="w-2 h-2 bg-emerald-500 rounded-full" />
-                                            +12% increase
+                                            Live Statistics
                                          </div>
                                       </div>
                                       <ResponsiveContainer width="100%" height="80%">
-                                         <AreaChart data={[
-                                            { name: 'Mon', views: Math.floor((blog.views || 0) * 0.1) },
-                                            { name: 'Tue', views: Math.floor((blog.views || 0) * 0.15) },
-                                            { name: 'Wed', views: Math.floor((blog.views || 0) * 0.05) },
-                                            { name: 'Thu', views: Math.floor((blog.views || 0) * 0.25) },
-                                            { name: 'Fri', views: Math.floor((blog.views || 0) * 0.1) },
-                                            { name: 'Sat', views: Math.floor((blog.views || 0) * 0.2) },
-                                            { name: 'Sun', views: Math.floor((blog.views || 0) * 0.15) },
-                                         ]}>
-                                            <defs>
-                                               <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
-                                                  <stop offset="5%" stopColor="#f97316" stopOpacity={0.1}/>
-                                                  <stop offset="95%" stopColor="#f97316" stopOpacity={0}/>
-                                               </linearGradient>
-                                            </defs>
-                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                                            <XAxis 
-                                              dataKey="name" 
-                                              axisLine={false} 
-                                              tickLine={false} 
-                                              tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 'bold' }}
-                                              dy={10}
-                                            />
-                                            <YAxis 
-                                              axisLine={false} 
-                                              tickLine={false} 
-                                              tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 'bold' }}
-                                            />
-                                            <Tooltip 
-                                               contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: 'none', background: '#1e293b', color: '#fff', fontSize: '11px' }}
-                                               itemStyle={{ color: '#fb923c' }}
-                                            />
-                                            <Area type="monotone" dataKey="views" stroke="#f97316" strokeWidth={3} fillOpacity={1} fill="url(#colorViews)" />
-                                         </AreaChart>
+                                         {loadingStats ? (
+                                           <div className="w-full h-full flex items-center justify-center">
+                                              <Loader2 className="w-6 h-6 animate-spin text-gray-200" />
+                                           </div>
+                                         ) : blogStats.length > 0 ? (
+                                           <AreaChart data={blogStats}>
+                                              <defs>
+                                                 <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="5%" stopColor="#f97316" stopOpacity={0.1}/>
+                                                    <stop offset="95%" stopColor="#f97316" stopOpacity={0}/>
+                                                 </linearGradient>
+                                              </defs>
+                                              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                              <XAxis 
+                                                dataKey="name" 
+                                                axisLine={false} 
+                                                tickLine={false} 
+                                                tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 'bold' }}
+                                                dy={10}
+                                              />
+                                              <YAxis 
+                                                axisLine={false} 
+                                                tickLine={false} 
+                                                tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 'bold' }}
+                                              />
+                                              <Tooltip 
+                                                 contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: 'none', background: '#1e293b', color: '#fff', fontSize: '11px' }}
+                                                 itemStyle={{ color: '#fb923c' }}
+                                              />
+                                              <Area type="monotone" dataKey="views" stroke="#f97316" strokeWidth={3} fillOpacity={1} fill="url(#colorViews)" />
+                                           </AreaChart>
+                                         ) : (
+                                           <div className="w-full h-full flex flex-col items-center justify-center text-gray-300 gap-2">
+                                              <BarChart2 className="w-8 h-8 opacity-20" />
+                                              <p className="text-[10px] uppercase font-black tracking-widest">No data collected yet</p>
+                                           </div>
+                                         )}
                                       </ResponsiveContainer>
                                    </div>
                                 </div>
